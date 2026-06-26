@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.routes import router
 from app.config import get_settings
@@ -15,7 +16,13 @@ logging.basicConfig(level=logging.INFO)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     if settings.environment != "test":
-        Base.metadata.create_all(bind=engine)
+        try:
+            Base.metadata.create_all(bind=engine)
+        except SQLAlchemyError:
+            logging.warning(
+                "Optional copilot database initialization skipped. "
+                "Agent endpoints can still use the Trade Operations API.",
+            )
     yield
 
 

@@ -12,6 +12,7 @@ export default defineConfig({
       "/query-history": "http://127.0.0.1:8000",
       "/sample-questions": "http://127.0.0.1:8000",
       "/schema": "http://127.0.0.1:8000",
+      "/agent": "http://127.0.0.1:8000",
     },
   },
 });

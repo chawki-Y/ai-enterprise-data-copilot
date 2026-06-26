@@ -20,6 +20,13 @@ def test_sample_questions() -> None:
     assert "Show trades pending validation" in response.json()
 
 
+def test_agent_sample_questions() -> None:
+    response = client.get("/agent/sample-questions")
+
+    assert response.status_code == 200
+    assert "Give me an operations morning summary." in response.json()
+
+
 def test_schema_contains_capital_markets_tables() -> None:
     response = client.get("/schema")
 

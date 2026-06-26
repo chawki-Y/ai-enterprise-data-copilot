@@ -1,96 +1,78 @@
-# Capital Markets Data Copilot
+# Trade Operations Copilot
 
-A full-stack portfolio project that combines capital-markets domain modeling, safe SQL generation, API design, and a polished React interface.
+An embeddable AI copilot for trade operations and middle-office dashboards.
 
-The app lets a user ask trade-lifecycle questions in natural language. The backend generates a PostgreSQL `SELECT` query, validates it through strict guardrails, executes it against a capital-markets dataset, stores query history, and returns a natural-language answer, generated SQL, and result table.
+The project provides a reusable browser widget that opens as a right-side assistant panel from a floating button. It can be imported into any website with one script tag, while the standalone template page lets the copilot be tested on its own.
 
-## Domain Context
+The current agent is tailored for a trade operations dashboard that exposes trade, operations, market data, audit, and investigation APIs.
 
-Trading and post-trade platforms sit at the intersection of front office, operations, risk, market data, and settlement workflows. This project models those workflows through trades, books, portfolios, counterparties, instruments, market prices, settlements, P&L, and validation status.
+## What It Does
 
-It is designed to show:
-
-- Understanding of trade lifecycle data and reporting questions
-- Ability to translate user requirements into SQL and APIs
-- Awareness of controls, validation, and safe data access
-- Practical full-stack delivery using Python, SQL, React, and Docker
-- Clear communication through documentation and realistic examples
+- Embeds into any HTML, React, or server-rendered website
+- Shows a floating `Ask Copilot` button on the right side of the screen
+- Opens a right-side popup panel with a chat-style assistant
+- Calls a FastAPI copilot backend
+- Uses the existing Trade Operations API as its tool source
+- Answers analyst questions about trades, rejected trades, market data, audit logs, P&L, and operational risk
+- Keeps a standalone demo UI for testing without importing into another project
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    User[Business / Ops user] --> UI[React + Tailwind dashboard]
-    UI --> API[FastAPI routers]
-    API --> Generator[AI SQL generation service]
-    Generator --> OpenAI[OpenAI API when configured]
-    Generator --> Fallback[Deterministic demo fallback]
-    API --> Validator[SQL safety validator]
-    Validator --> Executor[Query executor]
-    Executor --> DB[(PostgreSQL)]
-    API --> History[Query history]
-    History --> DB
-    API --> UI
+    Website[Host website] --> Widget[Embeddable JS widget]
+    Template[Standalone template UI] --> Widget
+    Widget --> CopilotAPI[FastAPI copilot backend]
+    CopilotAPI --> Agent[Trade operations agent service]
+    Agent --> TradeAPI[Existing Node/Express Trade Operations API]
+    TradeAPI --> DB[(PostgreSQL)]
+    Agent --> OpenAI[Optional OpenAI summarization]
+    CopilotAPI --> Widget
 ```
 
-## Tech Stack
-
-- Python, FastAPI, Pydantic
-- PostgreSQL
-- SQLAlchemy ORM
-- OpenAI API
-- React, Vite, Tailwind CSS
-- Docker Compose
-- pytest
-
-## Features
-
-- Capital-markets dataset for instruments, trades, counterparties, books, portfolios, market prices, settlements, users, and query history
-- Natural-language question interface
-- Generated SQL shown in a readable code block
-- Result table with query output
-- Query history panel
-- Sample capital-markets questions
-- Responsive dark dashboard UI
-- OpenAI-backed SQL generation when `OPENAI_API_KEY` is set
-- Reliable fallback for common demo questions when no API key is available
-- Read-only SQL validation with table whitelist and automatic `LIMIT 100`
-
-## Screenshots
-
-Place updated screenshots in:
+## Repository Structure
 
 ```text
-screenshots/desktop-chat.png
-screenshots/mobile-chat.png
+backend/
+  app/api/routes.py                 FastAPI routes
+  app/services/trade_ops_agent.py   Agent intent routing and answers
+  app/services/trade_ops_client.py  Client for the host Trade Operations API
+  app/schemas/agent.py              Agent request/response contracts
+
+frontend/
+  public/trade-ops-copilot.js       Importable widget bundle
+  src/App.jsx                       Standalone template UI
+
+database/
+  schema.sql, seed.sql              Legacy standalone demo database assets
 ```
 
-## Database Model
+## Import Into Any Website
 
-Core tables:
+Serve or copy `frontend/public/trade-ops-copilot.js`, then add:
 
-- `instruments`
-- `trades`
-- `counterparties`
-- `books`
-- `portfolios`
-- `market_prices`
-- `settlements`
-- `users`
-- `query_history`
+```html
+<script src="/trade-ops-copilot.js"></script>
+<script>
+  window.TradeOpsCopilot.init({
+    apiBaseUrl: "http://127.0.0.1:8000",
+    title: "Trade Ops Copilot",
+    subtitle: "Middle-office assistant",
+    buttonLabel: "Ask Copilot"
+  });
+</script>
+```
 
-## Example Questions
+The widget creates its own floating button, panel, styles, chat messages, sample questions, and result previews.
 
-- Show trades pending validation
-- Show failed settlements this week
-- Show P&L by book
-- Show top 5 counterparties by exposure
-- Show trades by instrument
-- Show market value by portfolio
-- Show trades booked today
-- Show settlement status by counterparty
+## Backend Endpoints
 
-## API Endpoints
+Primary widget endpoints:
+
+- `GET /agent/sample-questions`
+- `POST /agent/ask`
+
+Utility endpoints:
 
 - `GET /health`
 - `GET /schema`
@@ -98,63 +80,18 @@ Core tables:
 - `POST /ask`
 - `GET /query-history`
 
-Backward-compatible endpoints are also available:
+## Supported Questions
 
-- `POST /api/query`
-- `GET /api/history`
+Examples:
 
-## Setup
-
-### 1. Start PostgreSQL
-
-```bash
-docker compose up -d
-```
-
-The container loads `database/schema.sql` and `database/seed.sql` on first startup.
-
-### 2. Configure Backend
-
-```bash
-cd backend
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-copy .env.example .env
-```
-
-Set `OPENAI_API_KEY` in `backend/.env` if you want live AI SQL generation. The demo fallback works without a key.
-
-### 3. Reseed Demo Data
-
-```bash
-cd backend
-python scripts/seed.py
-```
-
-The seed script recreates the capital-markets schema and reloads demo data.
-
-### 4. Run Backend
-
-```bash
-cd backend
-uvicorn app.main:app --reload
-```
-
-Backend: `http://localhost:8000`
-
-### 5. Run Frontend
-
-```bash
-cd frontend
-npm install
-copy .env.example .env
-npm run dev
-```
-
-Frontend: `http://localhost:5173`
-
-The Vite dev server proxies `/ask`, `/query-history`, `/schema`, `/health`, and `/sample-questions` to the backend.
+- Give me an operations morning summary.
+- Show me today's rejected trades.
+- Why was trade TRD-20260625-000004 rejected?
+- Summarize audit logs for trade TRD-20260625-000004.
+- Is any market data stale?
+- What happened with AAPL market price?
+- Summarize today's P&L.
+- Highlight operational risks.
 
 ## Environment Variables
 
@@ -164,7 +101,8 @@ Backend:
 DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/enterprise_copilot
 OPENAI_API_KEY=
 OPENAI_MODEL=gpt-4.1-mini
-ALLOWED_ORIGINS=http://localhost:5173
+ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3001,http://127.0.0.1:5173,http://127.0.0.1:3001
+TRADE_OPS_API_BASE_URL=http://localhost:3001
 ```
 
 Frontend:
@@ -173,19 +111,59 @@ Frontend:
 VITE_API_BASE_URL=
 ```
 
-Leave `VITE_API_BASE_URL` empty for local Vite proxying. Set it only when calling a separately hosted backend.
+## Run Standalone
 
-## SQL Safety Design
+Start the Trade Operations app first, because the copilot agent reads from its API.
 
-The backend validates generated SQL before execution:
+Then run the copilot backend:
 
-- Allows only `SELECT`
-- Rejects multiple statements
-- Blocks `INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `TRUNCATE`, `CREATE`, `GRANT`, and `REVOKE`
-- Rejects comments and suspicious patterns
-- Enforces a whitelist of capital-markets tables
-- Automatically appends `LIMIT 100` when no limit is present
-- Returns clear validation errors
+```bash
+cd backend
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+copy .env.example .env
+uvicorn app.main:app --reload
+```
+
+Run the standalone template:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open:
+
+```text
+http://localhost:5173
+```
+
+## Run Embedded In The Trade Operations App
+
+The host app can load `trade-ops-copilot.js` from its own `public/` folder or from the copilot dev server.
+
+For local development:
+
+1. Start the Trade Operations app on port `3001`.
+2. Start this FastAPI copilot backend on port `8000`.
+3. Open the Trade Operations website.
+4. Click the floating `Ask Copilot` button.
+
+## Agent Design
+
+The agent uses the existing system API instead of duplicating business rules:
+
+- `/api/operations/summary`
+- `/api/operations/investigate/:tradeId`
+- `/api/trades`
+- `/api/trades/report`
+- `/api/market-overview`
+- `/api/market-price/:symbol`
+- `/api/audit-logs`
+
+This keeps the copilot aligned with the source system and makes the widget portable.
 
 ## Tests
 
@@ -194,29 +172,11 @@ cd backend
 pytest
 ```
 
-Current coverage includes:
-
-- SQL validator safety rules
-- Health endpoint
-- Schema endpoint
-- Sample questions endpoint
-
-## Engineering Notes
-
-- How the schema maps to trade lifecycle concepts: booking, validation, market value, P&L, settlement, and counterparty exposure
-- Why generated SQL must be validated even when produced by an AI model
-- How table whitelisting and read-only validation reduce operational risk
-- How the backend separates routes, schemas, models, and services
-- How a similar assistant could support trade support, operations, risk, or production support analysts
-- What would be needed for production: authentication, RBAC, row-level security, schema introspection, audit logging, and model evaluation
-
 ## Future Improvements
 
-- Alembic migrations
-- Role-based access control and row-level permissions
+- Conversation memory
 - Streaming responses
-- Chart visualizations for P&L and exposure
-- SQL-generation evaluation suite
-- Saved dashboards and bookmarked queries
-- Real schema introspection instead of static prompt context
-- Deployment to a cloud database and container platform
+- User/session context from the host app
+- Deeper tool calling with structured action plans
+- Theming options for host applications
+- Authentication between the host website and copilot backend
