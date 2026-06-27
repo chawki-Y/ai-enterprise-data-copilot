@@ -17,7 +17,6 @@ The current agent is tailored for a trade operations dashboard that exposes trad
 - Classifies user intent before taking action
 - Explains the application and trade operations concepts without generating SQL
 - Answers analyst questions about trades, instruments, rejected trades, market data, audit logs, P&L, and operational risk
-- Generates and validates SQL only for clear operational data questions in the standalone SQL flow
 - Keeps a standalone demo UI for testing without importing into another project
 
 ## Architecture
@@ -35,8 +34,6 @@ flowchart LR
     TradeAPI --> DB[(Source-system PostgreSQL)]
     LogAPI --> DB
     Agent --> OpenAI[Optional OpenAI summarization]
-    CopilotAPI --> SQLFlow[Legacy standalone safe-SQL demo]
-    SQLFlow --> DemoDB[(Optional demo PostgreSQL)]
     CopilotAPI --> Widget
 ```
 
@@ -54,8 +51,6 @@ frontend/
   public/trade-ops-copilot.js       Importable widget bundle
   src/App.jsx                       Standalone template UI
 
-database/
-  schema.sql, seed.sql              Legacy standalone demo database assets
 ```
 
 ## Import Into Any Website
@@ -87,21 +82,21 @@ The `/agent/ask` response includes:
 
 - `answer`
 - `intent`
-- `generatedSql`
 - `columns`
 - `rows`
 - `rowCount`
 - `error`
 
-For explanation, concept, small-talk, or unknown messages, `generatedSql` is `null` and `columns`/`rows` are empty. For operational data questions, the agent calls the existing Trade Operations API and returns a clean natural-language answer plus structured rows when useful.
+For explanation, concept, small-talk, or unknown messages, `columns` and `rows` are empty. For
+operational data questions, the agent calls the existing Trade Operations API and returns a clean
+natural-language answer plus structured rows when useful.
 
 Utility endpoints:
 
 - `GET /health`
-- `GET /schema`
-- `GET /sample-questions`
-- `POST /ask`
-- `GET /query-history`
+
+The retired standalone SQL endpoints (`/ask`, `/schema`, and `/query-history`) were removed. Both
+the embedded widget and standalone template use the same database-free `/agent/ask` workflow.
 
 ## Supported Questions
 
@@ -130,7 +125,6 @@ result remains empty rather than falling back to older records.
 Backend:
 
 ```text
-DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/enterprise_copilot
 OPENAI_API_KEY=
 OPENAI_MODEL=gpt-4.1-mini
 ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3001,http://127.0.0.1:5173,http://127.0.0.1:3001
@@ -190,7 +184,7 @@ The agent first classifies each user message:
 - `APP_EXPLANATION`: explains the Trade Operations Management System.
 - `CONCEPT_EXPLANATION`: explains concepts such as trades, P&L, audit trail, rejected trades, and stale market data.
 - `SMALL_TALK`: responds naturally and suggests useful prompts.
-- `DATA_QUERY`: retrieves operational data or runs the standalone safe-SQL flow.
+- `DATA_QUERY`: retrieves operational data through the Trade Operations API.
 - `UNKNOWN`: gives a helpful nudge with examples instead of pretending to have queried data.
 
 For the embedded widget, the agent uses the existing system API instead of duplicating business rules:
@@ -210,23 +204,15 @@ After every embedded `/agent/ask` interaction, FastAPI sends the question, inten
 source endpoint, row count, and any error to `POST /api/ai-copilot/logs`. The Trade Operations
 Management System stores this history in `ai_copilot_logs`, making it the single source of truth
 for both business data and AI audit history. The embedded workflow is stateless and does not use
-the copilot repository's PostgreSQL database.
+an AI-backend database.
 
 The log also captures success/failure, total response time, the OpenAI model when one was used, and
 provider-reported token usage when available. Deterministic answers leave model and tokens null.
 This supports future operational dashboards without adding authentication or session tracking.
 
-The optional legacy standalone `/ask` endpoint still uses the copilot PostgreSQL schema and keeps
-strict SQL safety rules:
-
-- only `SELECT`
-- no multiple statements
-- no comments
-- no DDL/DML keywords
-- whitelisted tables only
-- automatic `LIMIT 100` when missing
-
-SQL is generated only when the classifier identifies a clear data query.
+FastAPI has no SQLAlchemy engine, database startup hook, migrations, or local query-history table.
+This keeps it focused on natural-language understanding, intent classification, API orchestration,
+optional OpenAI summarization, and centralized operational logging.
 
 ## Tests
 

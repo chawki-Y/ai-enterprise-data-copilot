@@ -6,11 +6,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     app_name: str = "Trade Operations Copilot"
-    environment: str = "development"
-    database_url: str = Field(
-        default="postgresql+psycopg://postgres:postgres@localhost:5432/enterprise_copilot",
-        alias="DATABASE_URL",
-    )
     openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
     openai_model: str = Field(default="gpt-4.1-mini", alias="OPENAI_MODEL")
     allowed_origins: str = Field(

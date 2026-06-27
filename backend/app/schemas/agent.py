@@ -16,7 +16,6 @@ class AgentResponse(BaseModel):
     question: str
     intent: str
     answer: str
-    generated_sql: str | None = Field(default=None, alias="generatedSql")
     columns: list[str] = []
     rows: list[dict[str, Any]] = []
     row_count: int = Field(default=0, alias="rowCount")
