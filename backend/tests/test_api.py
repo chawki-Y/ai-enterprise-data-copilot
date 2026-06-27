@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.api.routes import trade_ops_agent
+from app.services.trade_ops_client import TradeOpsClientError
 
 
 client = TestClient(app)
@@ -74,6 +75,34 @@ def test_agent_logs_interaction_in_trade_operations_system(monkeypatch) -> None:
     assert captured["payload"]["intent"] == "APP_EXPLANATION"
     assert captured["payload"]["data_source_endpoint"] is None
     assert captured["payload"]["row_count"] == 0
+    assert captured["payload"]["success"] is True
+    assert isinstance(captured["payload"]["response_time_ms"], int)
+    assert captured["payload"]["response_time_ms"] >= 0
+    assert captured["payload"]["model"] is None
+    assert captured["payload"]["tokens_used"] is None
+
+
+def test_agent_logs_failed_interaction(monkeypatch) -> None:
+    captured = {}
+
+    def fail_answer(question):
+        raise TradeOpsClientError("Host API failed")
+
+    def capture_log(endpoint, payload):
+        captured["endpoint"] = endpoint
+        captured["payload"] = payload
+        return {"id": 1}
+
+    monkeypatch.setattr(trade_ops_agent, "answer", fail_answer)
+    monkeypatch.setattr(trade_ops_agent.client, "post", capture_log)
+
+    response = client.post("/agent/ask", json={"question": "Show rejected trades"})
+
+    assert response.status_code == 502
+    assert captured["endpoint"] == "/api/ai-copilot/logs"
+    assert captured["payload"]["success"] is False
+    assert captured["payload"]["error"] == "Host API failed"
+    assert isinstance(captured["payload"]["response_time_ms"], int)
 
 
 def test_schema_contains_capital_markets_tables() -> None:

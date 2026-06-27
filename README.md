@@ -208,6 +208,10 @@ Management System stores this history in `ai_copilot_logs`, making it the single
 for both business data and AI audit history. The embedded workflow is stateless and does not use
 the copilot repository's PostgreSQL database.
 
+The log also captures success/failure, total response time, the OpenAI model when one was used, and
+provider-reported token usage when available. Deterministic answers leave model and tokens null.
+This supports future operational dashboards without adding authentication or session tracking.
+
 The optional legacy standalone `/ask` endpoint still uses the copilot PostgreSQL schema and keeps
 strict SQL safety rules:
 

@@ -454,6 +454,7 @@ class TradeOpsAgent:
             ],
         )
         enhanced = response.choices[0].message.content or answer
+        tokens_used = response.usage.total_tokens if response.usage else None
         rows = self._rows_from_data(data)
         return AgentResponse(
             question=question,
@@ -465,6 +466,8 @@ class TradeOpsAgent:
             row_count=len(rows),
             sources=sources,
             suggestions=suggestions,
+            model=self.settings.openai_model,
+            tokens_used=tokens_used,
         )
 
     @staticmethod

@@ -24,5 +24,7 @@ class AgentResponse(BaseModel):
     sources: list[AgentSource] = []
     data: list[dict[str, Any]] | dict[str, Any] | None = None
     suggestions: list[str] = []
+    model: str | None = Field(default=None, exclude=True)
+    tokens_used: int | None = Field(default=None, exclude=True)
 
     model_config = {"populate_by_name": True}
