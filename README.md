@@ -37,6 +37,12 @@ flowchart LR
     CopilotAPI --> Widget
 ```
 
+## Screenshot
+
+The copilot runs as a responsive right-side panel inside the Trade Operations dashboard.
+
+![AI Trade Operations Copilot embedded panel](screenshots/embedded-copilot-panel.png)
+
 ## Repository Structure
 
 ```text
