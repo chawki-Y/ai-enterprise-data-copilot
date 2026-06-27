@@ -13,6 +13,7 @@ The current agent is tailored for a trade operations dashboard that exposes trad
 - Opens a right-side popup panel with a chat-style assistant
 - Calls a FastAPI copilot backend
 - Uses the existing Trade Operations API as its tool source
+- Stores embedded copilot interaction history in the Trade Operations Management System
 - Classifies user intent before taking action
 - Explains the application and trade operations concepts without generating SQL
 - Answers analyst questions about trades, instruments, rejected trades, market data, audit logs, P&L, and operational risk
@@ -29,10 +30,13 @@ flowchart LR
     CopilotAPI --> Classifier[Intent classifier]
     Classifier --> Agent[Trade operations agent service]
     Classifier --> Explainer[Application and concept answers]
-    Agent --> TradeAPI[Existing Node/Express Trade Operations API]
-    TradeAPI --> DB[(PostgreSQL)]
+    Agent --> TradeAPI[Node/Express Trade Operations API]
+    CopilotAPI --> LogAPI[POST /api/ai-copilot/logs]
+    TradeAPI --> DB[(Source-system PostgreSQL)]
+    LogAPI --> DB
     Agent --> OpenAI[Optional OpenAI summarization]
-    CopilotAPI --> SQLFlow[Safe SQL flow for standalone data queries]
+    CopilotAPI --> SQLFlow[Legacy standalone safe-SQL demo]
+    SQLFlow --> DemoDB[(Optional demo PostgreSQL)]
     CopilotAPI --> Widget
 ```
 
@@ -198,7 +202,14 @@ For the embedded widget, the agent uses the existing system API instead of dupli
 
 This keeps the copilot aligned with the source system and makes the widget portable.
 
-The standalone `/ask` endpoint keeps strict SQL safety rules:
+After every embedded `/agent/ask` interaction, FastAPI sends the question, intent, answer,
+source endpoint, row count, and any error to `POST /api/ai-copilot/logs`. The Trade Operations
+Management System stores this history in `ai_copilot_logs`, making it the single source of truth
+for both business data and AI audit history. The embedded workflow is stateless and does not use
+the copilot repository's PostgreSQL database.
+
+The optional legacy standalone `/ask` endpoint still uses the copilot PostgreSQL schema and keeps
+strict SQL safety rules:
 
 - only `SELECT`
 - no multiple statements

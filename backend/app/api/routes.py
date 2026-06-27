@@ -50,11 +50,15 @@ def get_agent_sample_questions() -> list[str]:
 @router.post("/agent/ask", response_model=AgentResponse)
 def ask_agent(payload: AgentAskRequest) -> AgentResponse:
     try:
-        return trade_ops_agent.answer(payload.question)
+        response = trade_ops_agent.answer(payload.question)
+        _record_agent_log(payload.question, response)
+        return response
     except TradeOpsClientError as exc:
+        _record_agent_error(payload.question, str(exc))
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     except Exception as exc:
         logger.exception("Trade operations agent failed")
+        _record_agent_error(payload.question, "Unable to process the copilot question.")
         raise HTTPException(status_code=500, detail="Unable to process the copilot question.") from exc
 
 
@@ -153,6 +157,37 @@ def _record_history(
         )
     )
     db.commit()
+
+
+def _record_agent_log(question: str, response: AgentResponse) -> None:
+    endpoints = ", ".join(source.endpoint for source in response.sources) or None
+    payload = {
+        "question": question,
+        "intent": response.intent,
+        "answer": response.answer,
+        "data_source_endpoint": endpoints,
+        "row_count": response.row_count,
+        "error": response.error,
+    }
+    try:
+        trade_ops_agent.client.post("/api/ai-copilot/logs", payload)
+    except TradeOpsClientError:
+        logger.exception("Unable to persist AI Copilot interaction log")
+
+
+def _record_agent_error(question: str, error: str) -> None:
+    payload = {
+        "question": question,
+        "intent": intent_classifier.classify(question).value,
+        "answer": None,
+        "data_source_endpoint": None,
+        "row_count": 0,
+        "error": error,
+    }
+    try:
+        trade_ops_agent.client.post("/api/ai-copilot/logs", payload)
+    except TradeOpsClientError:
+        logger.exception("Unable to persist failed AI Copilot interaction log")
 
 
 def _answer_without_sql(question: str, intent: Intent) -> str:
